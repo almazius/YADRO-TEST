@@ -9,7 +9,8 @@ type Club struct {
 	Price       int64
 	Conditions  map[string]Condition
 	Queue       []string       // очередь клиетов
-	Tables      map[int64]bool // тут леэат занятые столы. Если стол не занят, значит его нет в мапе
+	Tables      map[int64]bool // тут лежат занятые столы. Если стол не занят, значит его нет в мапе
+	WorkTables  []WorkTable
 	//Events      []Event
 }
 
@@ -23,4 +24,10 @@ type Event struct {
 type Condition struct {
 	Id       int16
 	Position int64
+}
+
+type WorkTable struct {
+	Revenue     int64
+	WorkingTime time.Duration
+	LastStart   time.Time
 }

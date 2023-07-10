@@ -3,8 +3,10 @@ package club
 import (
 	"YADRO/internal"
 	"YADRO/internal/parser"
+	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"time"
@@ -33,8 +35,10 @@ func (cls *ClubSystem) Start() error {
 	if err != nil {
 		return err
 	}
+
 	club.Conditions = make(map[string]internal.Condition)
 	club.Tables = make(map[int64]bool)
+	club.WorkTables = make([]internal.WorkTable, club.CountTables+1)
 
 	fmt.Println(club.StartTime.Format("15:04"))
 	for true {
@@ -52,6 +56,11 @@ func (cls *ClubSystem) Start() error {
 		}
 	}
 	cls.FinishClub(club)
+
+	for i := 1; i < len(club.WorkTables); i++ {
+		fix format output
+		fmt.Println(i, club.WorkTables[i].Revenue, club.WorkTables[i].WorkingTime)
+	}
 
 	return nil
 }
@@ -74,11 +83,22 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 			cls.CreateError(event.Timestamp, "PlaceIsBusy", "fix")
 		} else if club.Conditions[event.ClientName].Position != 0 && // check on zero value
 			(club.Conditions[event.ClientName].Position == 2 || club.Conditions[event.ClientName].Position == 12) {
+			oldTablesNumber := club.Conditions[event.ClientName].Position
+			delete(club.Tables, oldTablesNumber) // освобождаю старый стол
+			err := cls.finishCost(&club.WorkTables[oldTablesNumber], event.Timestamp, club.Price)
+			if err != nil {
+				return err
+			}
+
 			club.Conditions[event.ClientName] = internal.Condition{
 				Id:       event.Id,
 				Position: event.NumberTable,
 			}
-			club.Tables[event.NumberTable] = true
+			club.Tables[event.NumberTable] = true // занимаю новый стол
+			err = cls.startCost(&club.WorkTables[event.NumberTable], event.Timestamp)
+			if err != nil {
+				return err
+			}
 		} else if condition, exist := club.Conditions[event.ClientName]; !exist ||
 			condition.Id == 4 || condition.Id == 11 {
 			cls.CreateError(event.Timestamp, "ClientUnknown", "fix")
@@ -90,6 +110,7 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 				Position: event.NumberTable,
 			}
 			club.Tables[event.NumberTable] = true
+			club.WorkTables[event.NumberTable].LastStart = event.Timestamp
 		}
 	} else if event.Id == 3 {
 		if !cls.allTableIsBusy(club) {
@@ -99,6 +120,8 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 			cls.kickClient(event, club)
 		} else if condition, exist := club.Conditions[event.ClientName]; !exist || condition.Id == 4 || condition.Id == 11 {
 			cls.CreateError(event.Timestamp, "ClientUnknown", "fix")
+		} else if club.Conditions[event.ClientName].Position != 0 {
+			cls.CreateError(event.Timestamp, "Error", "Client already seat on table")
 		} else {
 			club.Queue = append(club.Queue, event.ClientName)
 			club.Conditions[event.ClientName] = internal.Condition{
@@ -111,13 +134,17 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 			cls.CreateError(event.Timestamp, "ClientUnknown", "fix")
 		} else {
 			if club.Conditions[event.ClientName].Position != 0 {
-				cls.takeTable(club, event.ClientName)
+				err := cls.finishCost(&club.WorkTables[club.Conditions[event.ClientName].Position], event.Timestamp, club.Price)
+				if err != nil {
+					return err
+				}
+				delete(club.Tables, club.Conditions[event.ClientName].Position)
+				//cls.takeTable(club, event.ClientName)
+				if len(club.Queue) > 0 {
+					cls.freeTable(event, club)
+				}
+				club.Conditions[event.ClientName] = internal.Condition{Id: 4, Position: 0}
 			}
-			delete(club.Tables, club.Conditions[event.ClientName].Position)
-			if len(club.Queue) > 0 {
-				cls.freePC(event, club)
-			}
-			club.Conditions[event.ClientName] = internal.Condition{Id: 4, Position: 0}
 		}
 	}
 	return nil
@@ -151,14 +178,25 @@ func (cls *ClubSystem) createKickList(club *internal.Club) []string {
 	return kickList
 }
 
-func (cls *ClubSystem) freePC(event *internal.Event, club *internal.Club) {
-	fmt.Println(event.Timestamp.Format("15:04"), 12, club.Queue[0], club.Conditions[event.ClientName].Position)
+func (cls *ClubSystem) freeTable(event *internal.Event, club *internal.Club) error {
+	oldTablesNumber := club.Conditions[event.ClientName].Position
+	fmt.Println(event.Timestamp.Format("15:04"), 12, club.Queue[0], oldTablesNumber)
 	club.Tables[club.Conditions[event.ClientName].Position] = true
+	err := cls.startCost(&club.WorkTables[oldTablesNumber], event.Timestamp)
+	if err != nil {
+		return err
+	}
+	club.Conditions[club.Queue[0]] = internal.Condition{
+		Id:       12,
+		Position: club.Conditions[event.ClientName].Position,
+	}
+
 	if len(club.Queue) != 1 {
 		club.Queue = club.Queue[1:]
 	} else {
 		club.Queue = make([]string, 0)
 	}
+	return nil
 }
 
 func (cls *ClubSystem) CreateError(timestamp time.Time, message, err string) {
@@ -166,14 +204,15 @@ func (cls *ClubSystem) CreateError(timestamp time.Time, message, err string) {
 	cls.Log.Println(err)
 }
 
-func (cls *ClubSystem) takeTable(club *internal.Club, clientName string) {
-	if len(club.Queue) > 0 {
-		club.Conditions[club.Queue[0]] = internal.Condition{
-			Id:       12,
-			Position: club.Conditions[clientName].Position,
-		}
-	}
-}
+//
+//func (cls *ClubSystem) takeTable(club *internal.Club, clientName string) {
+//	if len(club.Queue) > 0 {
+//		club.Conditions[club.Queue[0]] = internal.Condition{
+//			Id:       12,
+//			Position: club.Conditions[clientName].Position,
+//		}
+//	}
+//}
 
 func (cls *ClubSystem) placeIsBusy(numberTable int64, club *internal.Club) bool {
 	_, exist := club.Tables[numberTable]
@@ -184,10 +223,39 @@ func (cls *ClubSystem) allTableIsBusy(club *internal.Club) bool {
 	return int64(len(club.Tables)) == club.CountTables
 }
 
-func (cls *ClubSystem) kickClient(event *internal.Event, club *internal.Club) {
+func (cls *ClubSystem) kickClient(event *internal.Event, club *internal.Club) error {
+	err := cls.finishCost(&club.WorkTables[club.Conditions[event.ClientName].Position], event.Timestamp, club.Price)
+	if err != nil {
+		return err
+	}
 	club.Conditions[event.ClientName] = internal.Condition{
 		Id:       11,
 		Position: 0,
 	}
 	fmt.Println(event.Timestamp.Format("15:04"), 11, event.ClientName)
+	return nil
+}
+
+func (cls *ClubSystem) calcCost(startTime, endTime time.Time, price int64) int64 {
+	diff := endTime.Sub(startTime)
+	return int64(math.Ceil(diff.Minutes()/60)) * price
+}
+
+func (cls *ClubSystem) finishCost(table *internal.WorkTable, finishTime time.Time, price int64) error {
+	if table == nil {
+		cls.Log.Println("table is nil")
+		return errors.New("table is nil")
+	}
+	table.Revenue += int64(math.Ceil((finishTime.Sub(table.LastStart)).Minutes()/60)) * price
+	table.WorkingTime += finishTime.Sub(table.LastStart)
+	return nil
+}
+
+func (cls *ClubSystem) startCost(table *internal.WorkTable, startTime time.Time) error {
+	if table == nil {
+		cls.Log.Println("table is nil")
+		return errors.New("table is nil")
+	}
+	table.LastStart = startTime
+	return nil
 }

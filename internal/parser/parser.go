@@ -34,6 +34,9 @@ func (p *Parser) ParseContext() (*internal.Club, error) {
 	p.Scanner.Scan()
 
 	text := p.Scanner.Text()
+	if text == "" {
+		return nil, errors.New("file uncorrected")
+	}
 	club.CountTables, err = p.ParseInt64(text)
 	if err != nil {
 		return nil, err
@@ -41,6 +44,9 @@ func (p *Parser) ParseContext() (*internal.Club, error) {
 
 	p.Scanner.Scan()
 	text = p.Scanner.Text()
+	if text == "" {
+		return nil, errors.New("file uncorrected")
+	}
 	times := strings.Split(text, " ")
 	club.StartTime, err = p.ParseTime(times[0])
 	if err != nil {
@@ -53,6 +59,9 @@ func (p *Parser) ParseContext() (*internal.Club, error) {
 
 	p.Scanner.Scan()
 	text = p.Scanner.Text()
+	if text == "" {
+		return nil, errors.New("file uncorrected")
+	}
 
 	club.Price, err = p.ParseInt64(text)
 	if err != nil {

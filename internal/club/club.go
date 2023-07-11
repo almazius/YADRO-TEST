@@ -55,11 +55,14 @@ func (cls *ClubSystem) Start() error {
 			return err
 		}
 	}
-	cls.FinishClub(club)
-
+	err = cls.FinishClub(club)
+	if err != nil {
+		return err
+	}
 	for i := 1; i < len(club.WorkTables); i++ {
-		fix format output
-		fmt.Println(i, club.WorkTables[i].Revenue, club.WorkTables[i].WorkingTime)
+		//fix format output
+		fmt.Println(i, club.WorkTables[i].Revenue, fmt.Sprintf("%02d:%02d",
+			int(club.WorkTables[i].WorkingTime.Minutes()/60), int(club.WorkTables[i].WorkingTime.Minutes())%60))
 	}
 
 	return nil
@@ -117,7 +120,10 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 			cls.CreateError(event.Timestamp, "ICanWaitNoLonger!", "fix")
 		} else if int64(len(club.Queue)+1) > club.CountTables {
 			cls.Log.Println("queue is too long")
-			cls.kickClient(event, club)
+			err := cls.kickClient(event, club)
+			if err != nil {
+				return err
+			}
 		} else if condition, exist := club.Conditions[event.ClientName]; !exist || condition.Id == 4 || condition.Id == 11 {
 			cls.CreateError(event.Timestamp, "ClientUnknown", "fix")
 		} else if club.Conditions[event.ClientName].Position != 0 {
@@ -141,7 +147,10 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 				delete(club.Tables, club.Conditions[event.ClientName].Position)
 				//cls.takeTable(club, event.ClientName)
 				if len(club.Queue) > 0 {
-					cls.freeTable(event, club)
+					err = cls.freeTable(event, club)
+					if err != nil {
+						return err
+					}
 				}
 				club.Conditions[event.ClientName] = internal.Condition{Id: 4, Position: 0}
 			}
@@ -150,19 +159,22 @@ func (cls *ClubSystem) AnalysisEvent(event *internal.Event, club *internal.Club)
 	return nil
 }
 
-func (cls *ClubSystem) FinishClub(club *internal.Club) {
+func (cls *ClubSystem) FinishClub(club *internal.Club) error {
 	kickList := cls.createKickList(club)
 	sort.Strings(kickList)
-	for i, _ := range kickList {
-		cls.kickClient(&internal.Event{
+	for i := range kickList {
+		err := cls.kickClient(&internal.Event{
 			Timestamp:   club.FinishTime,
 			Id:          11,
 			ClientName:  kickList[i],
 			NumberTable: 0,
 		}, club)
+		if err != nil {
+			return err
+		}
 	}
 	fmt.Println(club.FinishTime.Format("15:04"))
-
+	return nil
 }
 
 func (cls *ClubSystem) createKickList(club *internal.Club) []string {

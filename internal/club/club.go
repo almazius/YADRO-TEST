@@ -62,7 +62,6 @@ func (cls *ClubSystem) StartClub() error {
 		return err
 	}
 	for i := 1; i < len(club.WorkTables); i++ {
-		//fix format output
 		fmt.Println(i, club.WorkTables[i].Revenue, fmt.Sprintf("%02d:%02d",
 			int(club.WorkTables[i].WorkingTime.Minutes()/60), int(club.WorkTables[i].WorkingTime.Minutes())%60))
 	}
@@ -81,7 +80,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 			cls.createError(event.Timestamp, "NotOpenYet", "user came at the wrong time")
 		} else if condition, exist := club.Conditions[event.ClientName]; exist &&
 			(condition.Id != 4 && condition.Id != 11) {
-			cls.createError(event.Timestamp, "YouShallNotPass", "fix")
+			cls.createError(event.Timestamp, "YouShallNotPass", "client already in club")
 		} else {
 			club.Conditions[event.ClientName] = internal.Condition{
 				Id:       event.Id,
@@ -90,7 +89,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 		}
 	} else if event.Id == 2 {
 		if cls.placeIsBusy(event.NumberTable, club) {
-			cls.createError(event.Timestamp, "PlaceIsBusy", "fix")
+			cls.createError(event.Timestamp, "PlaceIsBusy", "place already busy")
 		} else if club.Conditions[event.ClientName].Position != 0 && // check on zero value
 			(club.Conditions[event.ClientName].Position == 2 || club.Conditions[event.ClientName].Position == 12) {
 			oldTablesNumber := club.Conditions[event.ClientName].Position
@@ -111,7 +110,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 			}
 		} else if condition, exist := club.Conditions[event.ClientName]; !exist ||
 			condition.Id == 4 || condition.Id == 11 {
-			cls.createError(event.Timestamp, "ClientUnknown", "fix")
+			cls.createError(event.Timestamp, "ClientUnknown", "client didn't come")
 		} else if event.NumberTable < 1 || event.NumberTable > club.CountTables {
 			cls.createError(event.Timestamp, "Error", "incorrect table")
 		} else {
@@ -124,7 +123,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 		}
 	} else if event.Id == 3 {
 		if !cls.allTableIsBusy(club) {
-			cls.createError(event.Timestamp, "ICanWaitNoLonger!", "fix")
+			cls.createError(event.Timestamp, "ICanWaitNoLonger!", "client can sit")
 		} else if int64(len(club.Queue)+1) > club.CountTables {
 			cls.Log.Println("queue is too long")
 			err := cls.kickClient(event, club)
@@ -132,7 +131,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 				return err
 			}
 		} else if condition, exist := club.Conditions[event.ClientName]; !exist || condition.Id == 4 || condition.Id == 11 {
-			cls.createError(event.Timestamp, "ClientUnknown", "fix")
+			cls.createError(event.Timestamp, "ClientUnknown", "client didn't come")
 		} else if club.Conditions[event.ClientName].Position != 0 {
 			cls.createError(event.Timestamp, "Error", "Client already seat on table")
 		} else {
@@ -144,7 +143,7 @@ func (cls *ClubSystem) analysisEvent(event *internal.Event, club *internal.Club)
 		}
 	} else if event.Id == 4 {
 		if condition, exist := club.Conditions[event.ClientName]; !exist || condition.Id == 4 || condition.Id == 11 {
-			cls.createError(event.Timestamp, "ClientUnknown", "fix")
+			cls.createError(event.Timestamp, "ClientUnknown", "client didn't come")
 		} else {
 			if club.Conditions[event.ClientName].Position != 0 {
 				err := cls.finishCost(&club.WorkTables[club.Conditions[event.ClientName].Position], event.Timestamp, club.Price)

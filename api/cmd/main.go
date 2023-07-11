@@ -3,10 +3,15 @@ package main
 import (
 	"YADRO/internal/club"
 	"log"
+	"os"
 )
 
 func main() {
-	cls, err := club.NewClubSystem("/home/sigy/GolandProjects/YADRO/tests/test1.txt")
+	if len(os.Args) < 2 {
+		log.Fatalln("file not specified")
+	}
+	path := os.Args[1]
+	cls, err := club.NewClubSystem(path)
 	if err != nil {
 		return
 	}

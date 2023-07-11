@@ -2,32 +2,47 @@ package internal
 
 import "time"
 
+type IParser interface {
+	ParseContext() (*Club, error)
+	ParseEvents() (*Event, error)
+	ParseInt64(str string) (int64, error)
+	ParseInt16(str string) (int16, error)
+	ParseTime(str string) (time.Time, error)
+}
+
+type IClubSystem interface {
+	StartClub() error
+}
+
+// Club сущность игрового клуба, которая описывает его характеристики
 type Club struct {
-	CountTables int64
-	StartTime   time.Time
-	FinishTime  time.Time
-	Price       int64
-	Conditions  map[string]Condition
-	Queue       []string       // очередь клиетов
-	Tables      map[int64]bool // тут лежат занятые столы. Если стол не занят, значит его нет в мапе
-	WorkTables  []WorkTable
-	//Events      []Event
+	CountTables int64                // Количество столов
+	StartTime   time.Time            // Время начала работы
+	FinishTime  time.Time            // Конец работы
+	Price       int64                // Цена за час
+	Conditions  map[string]Condition // Состояния клиентов (сел за стол 1, встал в очередь и тд)
+	Queue       []string             // Очередь клиентов
+	Tables      map[int64]bool       // Тут лежат занятые столы. Если стол не занят, значит его нет в мапе
+	WorkTables  []WorkTable          // Массив с рабочими столами
 }
 
+// Event событие, которое происходит в клубе
 type Event struct {
-	Timestamp   time.Time
-	Id          int16
-	ClientName  string
-	NumberTable int64
+	Timestamp   time.Time // Время события
+	Id          int16     // ID действия
+	ClientName  string    // Имя клиента
+	NumberTable int64     // Номер стола, если zero value, действие не связано со столом
 }
 
+// Condition состояние пользователя, которая определяет его действие (сел за стол 1, встал в очередь и тд)
 type Condition struct {
-	Id       int16
-	Position int64
+	Id       int16 // Id действия
+	Position int64 // Стол, за которым сидит клиент, если zero value, значит он не сидит за столом.
 }
 
+// WorkTable показатели стола для расчета прибыли.
 type WorkTable struct {
-	Revenue     int64
-	WorkingTime time.Duration
-	LastStart   time.Time
+	Revenue     int64         // Общий доход
+	WorkingTime time.Duration // Общее рабочее время
+	LastStart   time.Time     // Последнее начало аренды стола
 }

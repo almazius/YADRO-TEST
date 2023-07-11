@@ -12,12 +12,13 @@ import (
 	"time"
 )
 
+// Parser структура, реализующая IParser, управляющая парсингом документа
 type Parser struct {
-	Log     *log.Logger
-	Scanner *bufio.Scanner
+	Log     *log.Logger    // Логер
+	Scanner *bufio.Scanner // Сканер текста
 }
 
-func NewParser(file *os.File) *Parser {
+func NewParser(file *os.File) internal.IParser {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 	return &Parser{
@@ -26,6 +27,7 @@ func NewParser(file *os.File) *Parser {
 	}
 }
 
+// ParseContext парсит первые 3 строки, в которых хранятся настройки для клуба
 func (p *Parser) ParseContext() (*internal.Club, error) {
 	var club internal.Club
 	var err error
@@ -71,6 +73,7 @@ func (p *Parser) ParseContext() (*internal.Club, error) {
 	return &club, nil
 }
 
+// ParseEvents парсит все события в файле
 func (p *Parser) ParseEvents() (*internal.Event, error) {
 	//scanner := bufio.NewScanner(file)
 	//scanner.Split(bufio.ScanLines)
@@ -117,15 +120,7 @@ func (p *Parser) ParseEvents() (*internal.Event, error) {
 	return &event, nil
 }
 
-//func (p *Parser) OpenFile(path string) (*os.File, error) {
-//	file, err := os.Open(path)
-//	if err != nil {
-//		p.Log.Print(err)
-//		return nil, err
-//	}
-//	return file, nil
-//}
-
+// ParseInt64 вспомогательная функция, позволяющая парсить числовые значения (кол-во столов)
 func (p *Parser) ParseInt64(str string) (int64, error) {
 	value, err := strconv.Atoi(str)
 	if err != nil {
@@ -136,6 +131,7 @@ func (p *Parser) ParseInt64(str string) (int64, error) {
 	return int64(value), nil
 }
 
+// ParseInt16 вспомогательная функция, позволяющая парсить числовые значения (Id события)
 func (p *Parser) ParseInt16(str string) (int16, error) {
 	value, err := strconv.Atoi(str)
 	if err != nil {
@@ -146,6 +142,7 @@ func (p *Parser) ParseInt16(str string) (int16, error) {
 	return int16(value), nil
 }
 
+// ParseTime вспомогательная функция, позволяющая парсить время
 func (p *Parser) ParseTime(str string) (time.Time, error) {
 	t, err := time.Parse("15:04", str)
 	if err != nil {

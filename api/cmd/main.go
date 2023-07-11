@@ -10,7 +10,7 @@ func main() {
 	if err != nil {
 		return
 	}
-	err = cls.Start()
+	err = cls.StartClub()
 	if err != nil {
 		log.Fatalln(err)
 	}

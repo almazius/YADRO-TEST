@@ -31,8 +31,6 @@ func NewParser(file *os.File) internal.IParser {
 func (p *Parser) ParseContext() (*internal.Club, error) {
 	var club internal.Club
 	var err error
-	//scanner := bufio.NewScanner(file)
-	//scanner.Split(bufio.ScanLines)
 	p.Scanner.Scan()
 
 	text := p.Scanner.Text()

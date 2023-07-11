@@ -23,7 +23,7 @@ type Club struct {
 	Conditions  map[string]Condition // Состояния клиентов (сел за стол 1, встал в очередь и тд)
 	Queue       []string             // Очередь клиентов
 	Tables      map[int64]bool       // Тут лежат занятые столы. Если стол не занят, значит его нет в мапе
-	WorkTables  []WorkTable          // Массив с рабочими столами
+	WorkTables  []WorkTable          // Массив с рабочими столами, в котором отражена статистика столов. Нумерация начинается с 1, поэтому размер массива CountTables + 1
 }
 
 // Event событие, которое происходит в клубе
@@ -44,5 +44,5 @@ type Condition struct {
 type WorkTable struct {
 	Revenue     int64         // Общий доход
 	WorkingTime time.Duration // Общее рабочее время
-	LastStart   time.Time     // Последнее начало аренды стола
+	LastStart   time.Time     // Последнее время начала аренды стола
 }
